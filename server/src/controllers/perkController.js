@@ -48,7 +48,7 @@ export async function getPerk(req, res, next) {
 // get all perks
 export async function getAllPerks(req, res, next) {
   try {
-    const perks = await Perk.find().sort({ createdAt: -1 });
+     const perks = await Perk.find().sort({ createdAt: -1 });
     res.json(perks);
   } catch (err) { next(err); }
 }
@@ -68,10 +68,36 @@ export async function createPerk(req, res, next) {
   }
 }
 // TODO
-// Update an existing perk by ID and validate only the fields that are being updated 
+// Update an existing perk by ID and validate only the fields that are being updated
 export async function updatePerk(req, res, next) {
-  
+  try {
+    const updateSchema = perkSchema.fork(
+      Object.keys(perkSchema.describe().keys),
+      (field) => field.optional()
+    );
+
+    // Validate only the provided fields
+    const { value, error } = updateSchema.validate(req.body, { stripUnknown: true });
+    if (error) return res.status(400).json({ message: error.message });
+
+    // Perform update
+    const doc = await Perk.findByIdAndUpdate(
+      req.params.id,
+      { $set: value },
+      { new: true, runValidators: true }
+    );
+
+    if (!doc) return res.status(404).json({ message: 'Perk not found' });
+
+    res.json({ perk: doc });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'Duplicate perk for this merchant' });
+    }
+    next(err);
+  }
 }
+
 
 
 // Delete a perk by ID
